@@ -411,7 +411,7 @@
    :attempts     1})
 
 (def ^:private count-in-state
-  (postgres/make-query-from-sql-text "jobs in a state" "SELECT count(*) AS n FROM groundwork_background_jobs.background_jobs WHERE background_job__state = CAST(:state AS text)"))
+  (postgres/make-query-from-sql-text "jobs in a state" "SELECT count(*) AS n FROM groundwork_background_jobs.background_jobs WHERE background_job__state = CAST(param('state') AS text)"))
 
 (deftest a-job-runs-as-its-kinds-system-actor-in-one-transaction
   (if-not port
