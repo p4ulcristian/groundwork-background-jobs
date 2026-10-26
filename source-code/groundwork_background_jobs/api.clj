@@ -7,7 +7,7 @@
        {:name         :app.mail/send-invoice-email
         :system-actor :invoice-emails                         ; the named actor its transaction runs as
         :params-shape [:map [:order/id :int]]
-        :run          (fn [background-job-context params] …)   ; background-job-context: :transaction :background-job-id :attempt :log
+        :run          (fn [background-job-context params] …)   ; background-job-context: :transaction :background-job-id :attempt :log :given
         :timeout-ms   60000
         :attempts     5})
 
@@ -26,6 +26,7 @@
                                     :meter                     meter
                                     ;; each job's one transaction, as its kind's actor (groundwork-access's, in groundwork)
                                     :run-in-transaction-as     (fn [pool actor log f] (access/run-as-system! pool actor {:read-only? false :log log} f))
+                                    :given-to-every-run        {:settings settings}   ; in every run's context as :given; {} for nothing
                                     :kinds                     [send-invoice-email]
                                     :schedules                 [{:kind send-nightly-report :params {} :cron \"0 1 * * *\"}]
                                     :workers                   4
@@ -47,7 +48,8 @@
    kind's :system-actor, in which the background job is also marked done,
    so the work and the mark commit together, or neither (a run past its
    time limit, already marked failed, marks nothing and its work is
-   undone). A background job that throws or runs out of time runs again
+   undone). Every run's context holds :given, the app's
+   :given-to-every-run, the same map each time. A background job that throws or runs out of time runs again
    later, waiting longer each time (:retry-first-wait-ms, times
    :retry-wait-factor each time, up to :retry-max-wait-ms), until it has had
    its :attempts; then it is dead, kept with its last error. A background
@@ -242,7 +244,7 @@
    background job's log, which the transaction carries (a :run's work kept
    for after the commit that fails is written there). Returns :ok or what
    was thrown."
-  [shaper pool kinds-by-name run-in-transaction-as log {:background-job/keys [id kind params attempts]}]
+  [shaper pool kinds-by-name run-in-transaction-as given-to-every-run log {:background-job/keys [id kind params attempts]}]
   (try
     (let [{:keys [run params-shape system-actor] :as background-job-kind} (get kinds-by-name kind)]
       (when-not background-job-kind
@@ -254,7 +256,9 @@
           (throw (ex-info "The background job's params don't fit its shape" {:errors errors})))
         (run-in-transaction-as pool system-actor log
                                (fn [transaction]
-                                 (run {:transaction transaction :background-job-id id :attempt attempts :log log} shaped-data)
+                                 (run {:transaction transaction :background-job-id id :attempt attempts :log log
+                                       :given given-to-every-run}
+                                      shaped-data)
                                  (mark-done-in-run! transaction id attempts)))
         :ok))
     (catch Throwable throwable throwable)))
@@ -272,11 +276,11 @@
   "Runs a claimed background job within its time limit and saves what
    happened; log is the background job's. Records the run's time; returns
    how it ended: :done, :failed or :gave-up (groundwork-background-jobs.metrics/outcomes)."
-  [{:keys [shaper pool kinds-by-name run-in-transaction-as meter] :as running} log {:background-job/keys [id kind attempts timeout-ms] :as background-job}]
+  [{:keys [shaper pool kinds-by-name run-in-transaction-as given-to-every-run meter] :as running} log {:background-job/keys [id kind attempts timeout-ms] :as background-job}]
   (let [outcome (promise)
         started (System/nanoTime)
         thread  (Thread/startVirtualThread #(deliver outcome (run-background-job-and-catch shaper pool kinds-by-name run-in-transaction-as
-                                                                                            log background-job)))
+                                                                                            given-to-every-run log background-job)))
         result  (deref outcome timeout-ms :timed-out)]
     (metrics/record-run-time! meter kind started)
     (when (= :timed-out result) (.interrupt thread))
@@ -384,6 +388,9 @@
                                          job's one transaction as its kind's :system-actor,
                                          carrying log, the job's (groundwork-postgres's :log; groundwork-access's
                                          run-as-system!, in groundwork)
+     :given-to-every-run {…}             what every run is given, in its context as :given:
+                                         what the app made once at its start that its kinds
+                                         read ({:settings settings}), {} for nothing
      :kinds     [background job kinds]   every kind this server runs
      :schedules [{:kind a-background-job-kind :params {…} :cron \"0 1 * * *\"}]
      and the settings (settings-shape): :workers :poll-ms
@@ -408,7 +415,7 @@
     (doseq [{:keys [cron]} schedules]
       (cron/turn-cron-line-into-allowed-values cron))
     (let [schedules-by-key (into {} (map (juxt #(make-schedule-key shaper %) identity)) schedules)
-          running          (merge (select-keys options [:shaper :log :meter :run-in-transaction-as :workers :poll-ms :retry-first-wait-ms :retry-wait-factor
+          running          (merge (select-keys options [:shaper :log :meter :run-in-transaction-as :given-to-every-run :workers :poll-ms :retry-first-wait-ms :retry-wait-factor
                                                         :retry-max-wait-ms :stuck-after-time-limit-ms :forget-done-after-ms
                                                         :forget-done-every-ms :stop-wait-ms])
                                   {:pool             pool

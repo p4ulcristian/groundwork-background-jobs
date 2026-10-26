@@ -13,3 +13,4 @@ The first two were made while backroom was a library inside Groundwork, a Clojur
 - [Done background jobs are forgotten while the workers run](2026-10-23-done-background-jobs-are-forgotten-while-the-workers-run.md)
 - [Background jobs are counted on the app's meter](2026-10-23-jobs-are-counted-on-the-apps-meter.md)
 - [A job kind names its system actor, and its one transaction runs as it](2026-10-23-a-job-kind-names-its-system-actor.md)
+- [Every run is given what the app hands in](2026-10-26-every-run-is-given-what-the-app-hands-in.md)

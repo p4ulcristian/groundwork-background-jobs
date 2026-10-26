@@ -54,8 +54,9 @@
    whose sentences say what the job reaches), handed to the workers'
    :run-in-transaction-as; :params-shape, the malli shape its params fit;
    :run, (fn [context params]), the context {:transaction
-   :background-job-id :attempt :log}, :log the workers' log with the
-   background job's id and kind as its context; :timeout-ms, how long one
+   :background-job-id :attempt :log :given}, :log the workers' log with the
+   background job's id and kind as its context, :given the workers'
+   :given-to-every-run; :timeout-ms, how long one
    run may take; :attempts, how many runs it gets before it is dead."
   [:map {:closed true}
    [:name :qualified-keyword]
@@ -102,15 +103,24 @@
    groundwork-background-jobs knows no actor: it hands the kind's name over."
   [:run-in-transaction-as [fn? {:error/message "should be the app's (fn [pool system-actor log f]), groundwork-access's run-as-system! in groundwork"}]])
 
+(def given-to-every-run-entry
+  "What the app gives every run, the same map each time, in the run's
+   context as :given: what its kinds' :run read and the app made once at
+   its start (its settings, its own queue of background jobs), {} for an
+   app with nothing to give. groundwork-background-jobs never reads it."
+  [:given-to-every-run [:map-of {:error/message "should be a map, {} for nothing to give"} :any :any]])
+
 (def workers-options-shape
   "start-workers!'s options: the app's shaper, log and meter, how a job's
-   transaction is opened (:run-in-transaction-as), the settings, the kinds
-   this server runs and the schedules, every key required."
+   transaction is opened (:run-in-transaction-as), what every run is given
+   (:given-to-every-run), the settings, the kinds this server runs and the
+   schedules, every key required."
   (into [:map {:closed true}
          shaper-entry
          log-entry
          meter-entry
          run-in-transaction-as-entry
+         given-to-every-run-entry
          [:kinds [:sequential kind-shape]]
          [:schedules [:sequential schedule-shape]]]
         settings-entries))

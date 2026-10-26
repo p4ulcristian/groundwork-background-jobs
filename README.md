@@ -50,7 +50,7 @@ kind this server doesn't run is counted as `"other"`.
 | `background-jobs-tables` `background-jobs-table` `background-job-schedules-table` | its two tables, `groundwork_background_jobs.background_jobs` and `groundwork_background_jobs.background_job_schedules`, as maps for groundwork-postgres |
 | `add-background-job-to-queue!` | saves a background job of a kind, its params checked by the kind's `:params-shape`, and counts it; options `:shaper` and `:meter` (the app's), `:run-in-ms` and `:key` (nil, or one at a time), all written out |
 | `make-give-up-exception` | what a kind's `:run` throws to end its background job for good: dead at once, kept with the message |
-| `start-workers!` `stop-workers!` `settings-shape` | the workers on this server (`:shaper` `:log` `:meter` `:run-in-transaction-as` `:kinds` `:schedules` and the settings); stopping waits for running ones, at most `:stop-wait-ms`; the settings as a malli shape |
+| `start-workers!` `stop-workers!` `settings-shape` | the workers on this server (`:shaper` `:log` `:meter` `:run-in-transaction-as` `:given-to-every-run` `:kinds` `:schedules` and the settings); stopping waits for running ones, at most `:stop-wait-ms`; the settings as a malli shape |
 | `list-queued-background-jobs` `list-dead-background-jobs` | what waits, and what had all its attempts or gave up, with its last error |
 | `run-background-job-again-now!` | queues a dead or waiting background job to run now, its attempts counted afresh |
 
@@ -80,7 +80,7 @@ kind this server doesn't run is counted as `"other"`.
   {:name         :billing/send-invoice-email
    :system-actor :invoice-emails                 ; the named actor its one transaction runs as
    :params-shape [:map [:order/id :uuid]]
-   :run          (fn [{:keys [transaction background-job-id attempt log]} {:order/keys [id]}] …) ; log: the job's
+   :run          (fn [{:keys [transaction background-job-id attempt log given]} {:order/keys [id]}] …) ; log: the job's; given: the app's
    :timeout-ms   60000
    :attempts     5})
 
@@ -97,6 +97,8 @@ kind this server doesn't run is counted as `"other"`.
                                             :meter                     meter
                                             ;; opens each job's one transaction as its kind's actor: groundwork-access's, in groundwork
                                             :run-in-transaction-as     (fn [pool actor log f] (access/run-as-system! pool actor {:read-only? false :log log} f))
+                                            ;; in every run's context as :given, the same map each time; {} for nothing to give
+                                            :given-to-every-run        {:settings settings}
                                             :kinds                     [send-invoice-email send-nightly-report]
                                             :schedules                 [{:kind send-nightly-report :params {} :cron "0 1 * * *"}]
                                             :workers                   4
@@ -128,6 +130,12 @@ the work and the mark commit together, or neither; a run past its time
 limit, already marked failed, marks nothing and its work is undone. groundwork-background-jobs
 knows no groundwork-access: it hands the kind's actor over
 ([why](decisions/2026-10-23-a-job-kind-names-its-system-actor.md)).
+
+What the app made once at its start and its kinds read (its settings,
+its own queue of background jobs) is handed to `start-workers!` as
+`:given-to-every-run`, a map, `{}` for an app with nothing to give; every
+run finds it in its context as `:given`, the same map each time. groundwork-background-jobs never
+reads it ([why](decisions/2026-10-26-every-run-is-given-what-the-app-hands-in.md)).
 
 Every setting and option is required, and every key of a kind and a
 schedule: a missing or unknown one is refused, named, with every other

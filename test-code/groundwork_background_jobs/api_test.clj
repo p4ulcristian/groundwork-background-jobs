@@ -61,9 +61,10 @@
 
 (defn- with-new-meter
   "start-workers!'s options with the tests' groundwork-shaped-json, log and
-   run-in-transaction-as, and a new meter."
+   run-in-transaction-as, nothing given to every run, and a new meter."
   [options]
-  (assoc options :shaper shaper :log log :meter (make-meter) :run-in-transaction-as run-in-transaction-as))
+  (assoc options :shaper shaper :log log :meter (make-meter) :run-in-transaction-as run-in-transaction-as
+         :given-to-every-run {}))
 
 (defn- make-pool [user]
   (postgres/start-pool! {:host "localhost" :port port :database "postgres" :user user :password nil
@@ -184,7 +185,7 @@
   (testing "start-workers! names each missing setting, before anything runs"
     (let [{:keys [type errors]} (find-refusal #(background-jobs/start-workers! nil {:shaper shaper :log log :kinds [] :schedules [] :workers 1 :poll-ms 100}))]
       (is (= :groundwork-background-jobs/bad-options type))
-      (is (= #{:meter :run-in-transaction-as :retry-first-wait-ms :retry-wait-factor :retry-max-wait-ms :stuck-after-time-limit-ms
+      (is (= #{:meter :run-in-transaction-as :given-to-every-run :retry-first-wait-ms :retry-wait-factor :retry-max-wait-ms :stuck-after-time-limit-ms
                :forget-done-after-ms :forget-done-every-ms :stop-wait-ms :metric-buckets}
              (set (keys errors))))))
   (testing "and an unknown one"
@@ -205,11 +206,13 @@
            (find-refusal #(background-jobs/add-background-job-to-queue! nil send-invoice-email {:order/id 1} (dissoc now :key))))))
   (testing "groundwork-background-jobs makes no shaper and no log: start-workers! takes the app's both"
     (is (= {:type :groundwork-background-jobs/bad-options :errors {:shaper ["missing required key"] :log ["missing required key"]
-                                                 :meter ["missing required key"] :run-in-transaction-as ["missing required key"]}}
+                                                 :meter ["missing required key"] :run-in-transaction-as ["missing required key"]
+                                                 :given-to-every-run ["missing required key"]}}
            (find-refusal #(background-jobs/start-workers! nil (assoc settings :kinds [] :schedules [])))))
     (is (= :groundwork-logs/not-a-log
            (:type (ex-data (try (background-jobs/start-workers! nil (assoc settings :shaper shaper :log (fn [_ _ _]) :meter (make-meter)
                                                                     :run-in-transaction-as run-in-transaction-as
+                                                                    :given-to-every-run {}
                                                                     :kinds [] :schedules []))
                                 (catch clojure.lang.ExceptionInfo e e)))))
         "a log groundwork-logs didn't make can't carry a background job's context: refused at the start"))
@@ -221,6 +224,9 @@
            (find-refusal #(background-jobs/start-workers! nil (assoc (with-new-meter (assoc settings :kinds [] :schedules [])) :meter nil)))))
     (is (= {:type :groundwork-metrics/not-a-meter}
            (find-refusal #(background-jobs/start-workers! nil (assoc (with-new-meter (assoc settings :kinds [] :schedules [])) :meter {}))))))
+  (testing "what every run is given is a map, {} for nothing: nil is refused"
+    (is (= {:type :groundwork-background-jobs/bad-options :errors {:given-to-every-run ["should be a map, {} for nothing to give"]}}
+           (find-refusal #(background-jobs/start-workers! nil (assoc (with-new-meter (assoc settings :kinds [] :schedules [])) :given-to-every-run nil))))))
   (testing "the run time's buckets are a setting; meter checks they go up"
     (is (= {:type :groundwork-metrics/bad-metrics}
            (select-keys (find-refusal #(background-jobs/start-workers! nil (with-new-meter (assoc settings :kinds [] :schedules []
@@ -349,6 +355,7 @@
                                                                     :write-to (fn [_])}))
               workers (background-jobs/start-workers! pool (assoc settings :shaper shaper :log own-log :meter meter :retry-first-wait-ms 100
                                                            :run-in-transaction-as run-in-transaction-as
+                                                           :given-to-every-run {}
                                                            :kinds [send-invoice-email give-up always-fails slow] :schedules []))]
           (try
             (testing "declared at the start: a metric without labels is there at 0"
@@ -447,6 +454,23 @@
               (is (= "clojure.lang.ExceptionInfo: the commit failed"
                      (:background-job/last-error (first (background-jobs/list-dead-background-jobs pool 10))))
                   "its one attempt failed, with the transaction's error")
+              (finally (background-jobs/stop-workers! workers)))))
+        (testing "every run is given the app's :given-to-every-run, the same map, as :given"
+          (let [given   (atom [])
+                reads   {:name         :test.settings/read
+                         :system-actor :test-jobs
+                         :params-shape [:map [:n :int]]
+                         :run          (fn [context {:keys [n]}] (swap! given conj [n (:given context)]))
+                         :timeout-ms   5000
+                         :attempts     1}
+                handed  {:settings {:shop-name "Rainbow Coaters"} :queue :the-apps-queue}
+                workers (background-jobs/start-workers! pool (assoc (with-new-meter (assoc settings :kinds [reads] :schedules []))
+                                                                    :given-to-every-run handed))]
+            (try
+              (background-jobs/add-background-job-to-queue! pool reads {:n 1} now)
+              (background-jobs/add-background-job-to-queue! pool reads {:n 2} now)
+              (wait-until #(= 2 (count @given)))
+              (is (= #{[1 handed] [2 handed]} (set @given)))
               (finally (background-jobs/stop-workers! workers)))))
         (testing "the transaction carries the job's log: work kept for after its commit that fails is written with the job's id and kind"
           (reset! lines [])
