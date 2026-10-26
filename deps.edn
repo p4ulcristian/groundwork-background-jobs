@@ -8,7 +8,7 @@
   ;; a reference what it does on delete, update and when checked, an index as a map;
   ;; migrate! takes {:tables :extensions :functions :views}; run-in-transaction! takes the
   ;; caller's :log, where work kept with run-after-commit! that fails is written
-  io.github.p4ulcristian/groundwork-postgres  {:git/tag "v0.4.9" :git/sha "1cc359d"}
+  io.github.p4ulcristian/groundwork-postgres  {:git/tag "v0.4.10" :git/sha "0956bdc"}
   ;; a background job's params, checked by its shape and kept as JSON text, by
   ;; the shaper the app makes and hands in
   io.github.p4ulcristian/groundwork-shaped-json    {:git/tag "v0.2.2" :git/sha "1c0fcf9"}
