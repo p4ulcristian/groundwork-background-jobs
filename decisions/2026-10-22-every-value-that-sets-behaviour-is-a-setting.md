@@ -1,5 +1,7 @@
 # Every value that sets behaviour is a setting; no hidden defaults
 
+> **Changed in part** by [Cron lines are read by cron-utils, as Unix cron reads them](2026-10-27-cron-lines-are-read-by-cron-utils-as-unix-cron.md) (2026-10-27, v0.6.1): cron-utils searches for a line's next time; groundwork-background-jobs's bound of 600000 steps is gone. Cron lines stay in UTC.
+
 > **Changed in part** by [Background jobs are counted on the app's meter](2026-10-23-jobs-are-counted-on-the-apps-meter.md) (2026-10-23, v0.5.0): a tenth setting, `:metric-buckets {:job-run-seconds […]}`.
 
 > **Changed in part** by [Done background jobs are forgotten while the workers run](2026-10-23-done-background-jobs-are-forgotten-while-the-workers-run.md) (2026-10-23, v0.4.0): a ninth setting, `:forget-done-every-ms`; done background jobs are deleted every that long while the workers run, not only when they start.

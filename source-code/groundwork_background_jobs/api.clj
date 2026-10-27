@@ -412,8 +412,6 @@
                       {:type :groundwork-background-jobs/kind-named-twice})))
     ;; and a meter meter didn't make is refused here too (:groundwork-metrics/not-a-meter)
     (metrics/declare-metrics! meter options)
-    (doseq [{:keys [cron]} schedules]
-      (cron/turn-cron-line-into-allowed-values cron))
     (let [schedules-by-key (into {} (map (juxt #(make-schedule-key shaper %) identity)) schedules)
           running          (merge (select-keys options [:shaper :log :meter :run-in-transaction-as :given-to-every-run :workers :poll-ms :retry-first-wait-ms :retry-wait-factor
                                                         :retry-max-wait-ms :stuck-after-time-limit-ms :forget-done-after-ms

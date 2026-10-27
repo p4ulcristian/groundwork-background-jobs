@@ -8,7 +8,7 @@
   ;; a reference what it does on delete, update and when checked, an index as a map;
   ;; migrate! takes {:tables :extensions :functions :views}; run-in-transaction! takes the
   ;; caller's :log, where work kept with run-after-commit! that fails is written
-  io.github.p4ulcristian/groundwork-postgres  {:git/tag "v0.4.10" :git/sha "0956bdc"}
+  io.github.p4ulcristian/groundwork-postgres  {:git/tag "v0.5.0" :git/sha "bca8150"}
   ;; a background job's params, checked by its shape and kept as JSON text, by
   ;; the shaper the app makes and hands in
   io.github.p4ulcristian/groundwork-shaped-json    {:git/tag "v0.2.2" :git/sha "1c0fcf9"}
@@ -17,7 +17,10 @@
   ;; the app's meter, handed in: jobs added, runs by outcome and time, jobs running
   io.github.p4ulcristian/groundwork-metrics   {:git/tag "v0.1.7" :git/sha "53c7099"}
   ;; the settings, options and kinds, checked before anything runs
-  metosin/malli                 {:mvn/version "0.20.3"}}
+  metosin/malli                 {:mvn/version "0.20.3"}
+  ;; the schedules' cron lines, read as Unix cron reads them, and their next times
+  ;; (it brings slf4j-api, on the path already through groundwork-postgres)
+  com.cronutils/cron-utils      {:mvn/version "9.2.1"}}
 
  :aliases
  {;; the tests:  clojure -X:test  (the Postgres ones need BACKGROUND_JOBS_TEST_PORT, see README.md)

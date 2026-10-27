@@ -9,6 +9,7 @@
    never makes one. start-workers! takes the app's log under :log; groundwork-background-jobs
    never decides how a line is written."
   (:require
+   [groundwork-background-jobs.cron :as cron]
    [malli.core :as malli]
    [malli.error :as malli-error]))
 
@@ -67,11 +68,14 @@
    [:attempts [:int {:min 1}]]])
 
 (def schedule-shape
-  "A schedule: a kind, its params, and a cron line in UTC."
+  "A schedule: a kind, its params, and a cron line in UTC, one cron-utils
+   reads as Unix cron and that comes (groundwork-background-jobs.cron)."
   [:map {:closed true}
    [:kind kind-shape]
    [:params :any]
-   [:cron :string]])
+   [:cron [:and :string
+           [:fn {:error/fn (fn [{:keys [value]} _] (cron/find-problem-in-cron-line value))}
+            #(nil? (cron/find-problem-in-cron-line %))]]]])
 
 (def shaper-entry
   "The app's shaper (groundwork-shaped-json.api's make-shaper-from-settings), made once by the

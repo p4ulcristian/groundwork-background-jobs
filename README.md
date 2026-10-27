@@ -17,9 +17,19 @@ io.github.p4ulcristian/groundwork-background-jobs {:git/tag "v0.6.0" :git/sha "d
 Needs only [groundwork-postgres](https://github.com/p4ulcristian/groundwork-postgres) (Postgres, tables
 as maps), [groundwork-shaped-json](https://github.com/p4ulcristian/groundwork-shaped-json) (params kept with
 their types), [groundwork-logs](https://github.com/p4ulcristian/groundwork-logs) (the
-app's log, handed down) and [groundwork-metrics](https://github.com/p4ulcristian/groundwork-metrics)
-(the app's metrics, handed in). One public namespace, `groundwork-background-jobs.api`; its part is
+app's log, handed down), [groundwork-metrics](https://github.com/p4ulcristian/groundwork-metrics)
+(the app's metrics, handed in), malli and [cron-utils](https://github.com/jmrozanec/cron-utils)
+(the cron lines). One public namespace, `groundwork-background-jobs.api`; its part is
 `groundwork-background-jobs.cron`.
+
+A schedule's cron line is read by cron-utils as Unix cron reads it
+(minute hour day-of-month month day-of-week; numbers, names, lists, ranges,
+steps; Sunday 0 or 7), in UTC; with both day fields restricted a day is one
+either allows (`0 0 13 * 5`: the 13th and every Friday), and a field of
+every day (`*`, `*/1`) leaves the other alone. Every schedule's line is
+checked when the workers start, a bad one or one that never comes named
+with every other problem
+([why](decisions/2026-10-27-cron-lines-are-read-by-cron-utils-as-unix-cron.md)).
 
 The app makes its shaper once and hands it in: `add-background-job-to-queue!`
 and `start-workers!` take it under `:shaper` in their options. groundwork-background-jobs never

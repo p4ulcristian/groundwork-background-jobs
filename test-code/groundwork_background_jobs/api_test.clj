@@ -227,6 +227,15 @@
   (testing "what every run is given is a map, {} for nothing: nil is refused"
     (is (= {:type :groundwork-background-jobs/bad-options :errors {:given-to-every-run ["should be a map, {} for nothing to give"]}}
            (find-refusal #(background-jobs/start-workers! nil (assoc (with-new-meter (assoc settings :kinds [] :schedules [])) :given-to-every-run nil))))))
+  (testing "every schedule's cron line is checked at the start, every bad one named at once"
+    (let [{:keys [type errors]} (find-refusal #(background-jobs/start-workers! nil (with-new-meter (assoc settings :kinds [send-invoice-email]
+                                                                                                    :schedules [{:kind send-invoice-email :params {:order/id 1} :cron "0 1 * * *"}
+                                                                                                                {:kind send-invoice-email :params {:order/id 2} :cron "every day"}
+                                                                                                                {:kind send-invoice-email :params {:order/id 3} :cron "0 0 31 2 *"}]))))]
+      (is (= :groundwork-background-jobs/bad-options type))
+      (is (= [false true true] (mapv some? (:schedules errors))) "the second and the third, not the first")
+      (is (re-find #"^should be a Unix cron line: " (first (get-in errors [:schedules 1 :cron]))))
+      (is (= ["never comes: no minute fits every field"] (get-in errors [:schedules 2 :cron])))))
   (testing "the run time's buckets are a setting; meter checks they go up"
     (is (= {:type :groundwork-metrics/bad-metrics}
            (select-keys (find-refusal #(background-jobs/start-workers! nil (with-new-meter (assoc settings :kinds [] :schedules []
