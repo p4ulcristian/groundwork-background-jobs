@@ -11,7 +11,7 @@ lets one give up for good. **The schedules:** cron lines in UTC that queue
 a background job at their times, on one server.
 
 ```clojure
-io.github.p4ulcristian/groundwork-background-jobs {:git/tag "v0.6.0" :git/sha "d217858"}
+io.github.p4ulcristian/groundwork-background-jobs {:git/tag "v0.6.1" :git/sha "e22d5be"}
 ```
 
 Needs only [groundwork-postgres](https://github.com/p4ulcristian/groundwork-postgres) (Postgres, tables
