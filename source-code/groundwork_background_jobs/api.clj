@@ -438,7 +438,7 @@
 (defn declare-background-job-metrics!
   "Declares groundwork-background-jobs's metrics on the app's meter, on a server that
    queues background jobs but runs none (start-workers! declares them
-   where workers run; never both on one meter): add-background-job-to-queue!
+   where workers run): add-background-job-to-queue!
    counts each job it adds on them, and the other metrics stay at what
    no run gives. Options, every key required, checked first
    (groundwork-background-jobs.settings/metrics-options-shape): :kinds, every kind

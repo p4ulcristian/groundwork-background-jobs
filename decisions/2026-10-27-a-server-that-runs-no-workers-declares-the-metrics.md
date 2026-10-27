@@ -6,7 +6,7 @@
 
 **Why:** an app's previews run on a copy of the database, where a job that runs would send a copy's emails and pay a copy's payouts; their jobs are queued and wait. Until now the only door to the declaration was `start-workers!`, so a server without workers counted nothing and its meter wrote `:groundwork-metrics/metric-not-declared`; Iron Rainbow reached into `groundwork-background-jobs.metrics`, which is not the api.
 
-**The price:** one more public function; an app that calls both on one meter is refused by groundwork-metrics (a metric declared twice).
+**The price:** one more public function. Called beside `start-workers!` on one meter it changes nothing with the same kinds, and is refused by groundwork-metrics with others (`:groundwork-metrics/bad-metrics`, declared before, differently).
 
 **Instead of:**
 - **`:workers 0`:** a worker count that means "none" beside every other worker setting, a dispatcher started that never claims
