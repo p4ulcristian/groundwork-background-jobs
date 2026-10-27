@@ -61,6 +61,7 @@ kind this server doesn't run is counted as `"other"`.
 | `add-background-job-to-queue!` | saves a background job of a kind, its params checked by the kind's `:params-shape`, and counts it; options `:shaper` and `:meter` (the app's), `:run-in-ms` and `:key` (nil, or one at a time), all written out |
 | `make-give-up-exception` | what a kind's `:run` throws to end its background job for good: dead at once, kept with the message |
 | `start-workers!` `stop-workers!` `settings-shape` | the workers on this server (`:shaper` `:log` `:meter` `:run-in-transaction-as` `:given-to-every-run` `:kinds` `:schedules` and the settings); stopping waits for running ones, at most `:stop-wait-ms`; the settings as a malli shape |
+| `declare-background-job-metrics!` | on a server that queues background jobs but runs none (a preview on a copy of the database): its metrics declared on the app's meter, as `start-workers!` declares them, so each job queued there is counted; options `:kinds` and `:metric-buckets`, written out ([why](decisions/2026-10-27-a-server-that-runs-no-workers-declares-the-metrics.md)) |
 | `list-queued-background-jobs` `list-dead-background-jobs` | what waits, and what had all its attempts or gave up, with its last error |
 | `run-background-job-again-now!` | queues a dead or waiting background job to run now, its attempts counted afresh |
 

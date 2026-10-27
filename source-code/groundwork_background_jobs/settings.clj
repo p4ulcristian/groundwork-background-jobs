@@ -129,6 +129,16 @@
          [:schedules [:sequential schedule-shape]]]
         settings-entries))
 
+(def metrics-options-shape
+  "declare-background-job-metrics!' options, every key required: :kinds,
+   every kind the server may queue (their names are the metrics' set of
+   kinds, as start-workers!' :kinds are); :metric-buckets, the settings'
+   (the run time's histogram is declared, though no run is timed here)."
+  (into [:map {:closed true}
+         [:kinds [:sequential kind-shape]]]
+        (filter #(= :metric-buckets (first %)))
+        settings-entries))
+
 (def queue-options-shape
   "add-background-job-to-queue!'s options, every key required.
    :shaper: the app's shaper, which the params are kept by.
@@ -157,6 +167,9 @@
 
 (defn check-kind [kind]
   (check-data-for-shape "The kind's keys" :groundwork-background-jobs/bad-kind kind-shape kind))
+
+(defn check-metrics-options [options]
+  (check-data-for-shape "The options" :groundwork-background-jobs/bad-options metrics-options-shape options))
 
 (defn check-queue-options [options]
   (check-data-for-shape "The options" :groundwork-background-jobs/bad-options queue-options-shape options))

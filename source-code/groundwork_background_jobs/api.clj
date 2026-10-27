@@ -75,6 +75,8 @@
    :debug when none), or :warn :groundwork-background-jobs/forgetting-failed.
 
    start-workers! declares groundwork-background-jobs's metrics on the app's meter, :meter
+   (a server that queues but runs none declares them with
+   declare-background-job-metrics!)
    (groundwork_background_jobs.metrics): groundwork_background_jobs_jobs_added_total{kind},
    groundwork_background_jobs_job_runs_total{kind,outcome}, groundwork_background_jobs_job_run_seconds{kind},
    groundwork_background_jobs_jobs_running{kind}, groundwork_background_jobs_dispatcher_failures_total; the
@@ -432,6 +434,24 @@
       (assoc running
              :dispatcher (Thread/startVirtualThread #(run-dispatcher! running))
              :forgetter  (Thread/startVirtualThread #(run-forgetter! running))))))
+
+(defn declare-background-job-metrics!
+  "Declares groundwork-background-jobs's metrics on the app's meter, on a server that
+   queues background jobs but runs none (start-workers! declares them
+   where workers run; never both on one meter): add-background-job-to-queue!
+   counts each job it adds on them, and the other metrics stay at what
+   no run gives. Options, every key required, checked first
+   (groundwork-background-jobs.settings/metrics-options-shape): :kinds, every kind
+   the server may queue, the metrics' set; :metric-buckets, the settings'.
+   A meter make-meter didn't make is refused (:groundwork-metrics/not-a-meter).
+   Returns nil.
+
+     (background-jobs/declare-background-job-metrics! meter {:kinds [send-invoice-email]
+                                                             :metric-buckets {:job-run-seconds [0.1 1 10]}})"
+  [meter options]
+  (settings/check-metrics-options options)
+  (metrics/declare-metrics! meter options)
+  nil)
 
 (defn stop-workers!
   "Stops taking background jobs and forgetting done ones, and waits for the

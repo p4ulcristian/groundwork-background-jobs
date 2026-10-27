@@ -13,6 +13,7 @@
            add-background-job-to-queue!
            make-give-up-exception
            start-workers!
+           declare-background-job-metrics!
            stop-workers!
            list-queued-background-jobs
            list-dead-background-jobs

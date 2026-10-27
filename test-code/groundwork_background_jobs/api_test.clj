@@ -498,3 +498,30 @@
                        (mapv #(get % "context") (find-lines "groundwork-postgres/after-commit-failed")))))
               (finally (background-jobs/stop-workers! workers)))))
         (finally (postgres/stop-pool! pool))))))
+
+(deftest a-server-that-runs-no-workers-declares-the-metrics
+  (testing "its options, every key required, checked first"
+    (is (= {:type :groundwork-background-jobs/bad-options :errors {:kinds ["missing required key"] :metric-buckets ["missing required key"]}}
+           (find-refusal #(background-jobs/declare-background-job-metrics! (make-meter) {}))))
+    (is (= {:type :groundwork-metrics/not-a-meter}
+           (find-refusal #(background-jobs/declare-background-job-metrics! {} {:kinds [] :metric-buckets (:metric-buckets settings)})))))
+  (let [meter (make-meter)]
+    (is (nil? (background-jobs/declare-background-job-metrics! meter {:kinds [send-invoice-email] :metric-buckets (:metric-buckets settings)})))
+    (testing "declared as start-workers! declares them, with no worker started"
+      (is (= ["groundwork_background_jobs_dispatcher_failures_total 0"] (find-metric-lines meter "groundwork_background_jobs_dispatcher_failures_total")))
+      (is (= ["# TYPE groundwork_background_jobs_job_run_seconds histogram"]
+             (find-metric-lines meter "# TYPE groundwork_background_jobs_job_run_seconds"))))
+    (if-not port
+      (println "groundwork-background-jobs.api-test: the queued job's count skipped, BACKGROUND_JOBS_TEST_PORT is not set")
+      (let [pool (make-pool (System/getenv "BACKGROUND_JOBS_TEST_USER"))]
+        (try
+          (make-tables-afresh! pool)
+          (reset! lines [])
+          (background-jobs/add-background-job-to-queue! pool send-invoice-email {:order/id 7} (assoc now :meter meter))
+          (testing "a job queued here is counted, and waits: nothing runs it"
+            (is (= ["groundwork_background_jobs_jobs_added_total{kind=\"test.mail/send-invoice-email\"} 1"]
+                   (find-metric-lines meter "groundwork_background_jobs_jobs_added_total")))
+            (is (= [] (find-lines "groundwork-metrics/metric-not-declared")))
+            (Thread/sleep 300)
+            (is (= 1 (count (background-jobs/list-queued-background-jobs pool 10)))))
+          (finally (postgres/stop-pool! pool)))))))
